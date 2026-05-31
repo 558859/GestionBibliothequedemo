@@ -7,8 +7,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates apt-transport-https gnupg2 wget curl build-essential \
         unixodbc-dev libssl-dev libxml2-dev libzip-dev zlib1g-dev \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc > /usr/share/keyrings/microsoft-prod.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod stable main" > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
     && pecl channel-update pecl.php.net \
