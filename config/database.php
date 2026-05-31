@@ -20,38 +20,59 @@ class Database
     public function getConnection()
     {
         try {
-            // Allow providing a full DSN via env (e.g., for Render), otherwise build one for sqlsrv
+            // Detect Render environment: prefer RENDER_EXTERNAL_URL or HTTP_HOST containing onrender.com
+            $isRender = getenv('RENDER_EXTERNAL_URL') || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'onrender.com') !== false);
+
+            // If a full DSN is provided in env, use it and try to infer driver
             if ($this->dsn) {
                 $dsn = $this->dsn;
+                $driver = strpos($dsn, 'mysql:') === 0 ? 'mysql' : (strpos($dsn, 'sqlsrv:') === 0 ? 'sqlsrv' : null);
             } else {
-                // Do NOT include CharacterSet in the DSN for pdo_sqlsrv; we'll set encoding via PDO attribute
-                $dsn = "sqlsrv:Server={$this->serverName};Database={$this->database};TrustServerCertificate=true";
+                // Choose driver based on environment: Render => MySQL, otherwise local => sqlsrv
+                $driver = $isRender ? 'mysql' : 'sqlsrv';
+                if ($driver === 'sqlsrv') {
+                    $dsn = "sqlsrv:Server={$this->serverName};Database={$this->database};TrustServerCertificate=true";
+                } else {
+                    // Build MySQL DSN for Render
+                    $host = getenv('DB_SERVER') ?: getenv('DB_HOST') ?: $this->serverName;
+                    $db   = getenv('DB_NAME') ?: getenv('DB_DATABASE') ?: $this->database;
+                    $charset = 'utf8mb4';
+                    $dsn = "mysql:host={$host};dbname={$db};charset={$charset}";
+                }
             }
 
-            // Remove any CharacterSet or charset parameters if present in the DSN (case-insensitive)
-            $dsn = preg_replace('/;?\s*CharacterSet=[^;]*/i', '', $dsn);
-            $dsn = preg_replace('/;?\s*charset=[^;]*/i', '', $dsn);
+            // Clean DSN for sqlsrv: remove CharacterSet/charset entries
+            if (isset($driver) && $driver === 'sqlsrv') {
+                $dsn = preg_replace('/;?\s*CharacterSet=[^;]*/i', '', $dsn);
+                $dsn = preg_replace('/;?\s*charset=[^;]*/i', '', $dsn);
+            }
 
-            // Prepare a list of credential attempts in order of preference
+            // Build credential attempts per driver
             $attempts = [];
-
-            // Primary: explicit username/password if provided
-            if (!empty($this->username) || $this->username === '0') {
-                $attempts[] = ['user' => $this->username, 'pass' => $this->password];
-            }
-
-            // Secondary: try without credentials (e.g. Windows Authentication / integrated auth)
-            $attempts[] = ['user' => null, 'pass' => null];
-
-            // Tertiary: optional fallback credentials provided via env (DB_FALLBACK_USER / DB_FALLBACK_PASS)
-            $fallbackUser = getenv('DB_FALLBACK_USER');
-            if ($fallbackUser !== false && $fallbackUser !== null && $fallbackUser !== '') {
-                $attempts[] = ['user' => $fallbackUser, 'pass' => getenv('DB_FALLBACK_PASS') ?: ''];
+            if ($driver === 'sqlsrv') {
+                if (!empty($this->username) || $this->username === '0') {
+                    $attempts[] = ['user' => $this->username, 'pass' => $this->password];
+                }
+                // Try integrated auth (no creds)
+                $attempts[] = ['user' => null, 'pass' => null];
+                $fallbackUser = getenv('DB_FALLBACK_USER');
+                if ($fallbackUser) {
+                    $attempts[] = ['user' => $fallbackUser, 'pass' => getenv('DB_FALLBACK_PASS') ?: ''];
+                }
+            } else {
+                // mysql
+                $user = getenv('DB_USER') ?: getenv('DB_USERNAME') ?: $this->username;
+                $pass = getenv('DB_PASS') ?: getenv('DB_PASSWORD') ?: $this->password;
+                if (!empty($user) || $user === '0') {
+                    $attempts[] = ['user' => $user, 'pass' => $pass];
+                }
+                $fallbackUser = getenv('DB_FALLBACK_USER');
+                if ($fallbackUser) {
+                    $attempts[] = ['user' => $fallbackUser, 'pass' => getenv('DB_FALLBACK_PASS') ?: ''];
+                }
             }
 
             $lastException = null;
-            $conn = null;
-
             foreach ($attempts as $cred) {
                 try {
                     if ($cred['user'] === null) {
@@ -60,38 +81,39 @@ class Database
                         $conn = new PDO($dsn, $cred['user'], $cred['pass']);
                     }
 
-                    // Success: set common attributes
+                    // Common attributes
                     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-                    // For pdo_sqlsrv, set the encoding via the SQLSRV PDO attribute (preferred over DSN charset)
-                    if (defined('PDO::SQLSRV_ATTR_ENCODING') && defined('PDO::SQLSRV_ENCODING_UTF8')) {
-                        try {
-                            $conn->setAttribute(PDO::SQLSRV_ATTR_ENCODING, PDO::SQLSRV_ENCODING_UTF8);
-                        } catch (Exception $e) {
-                            // non-fatal: continue with connection
+                    if ($driver === 'sqlsrv') {
+                        if (defined('PDO::SQLSRV_ATTR_ENCODING') && defined('PDO::SQLSRV_ENCODING_UTF8')) {
+                            try {
+                                $conn->setAttribute(PDO::SQLSRV_ATTR_ENCODING, PDO::SQLSRV_ENCODING_UTF8);
+                            } catch (Exception $e) {
+                                // non-fatal
+                            }
+                        }
+                    } else {
+                        // MySQL specific tuning
+                        if (defined('PDO::ATTR_EMULATE_PREPARES')) {
+                            $conn->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
                         }
                     }
 
                     return $conn;
-
                 } catch (PDOException $e) {
-                    // store and continue to next attempt
                     $lastException = $e;
                     error_log('Database connection attempt failed: ' . $e->getMessage());
-                    // If it's a credentials error and there are more attempts, try next
                     continue;
                 }
             }
 
-            // If we reach here, all attempts failed
             if ($lastException) {
                 throw $lastException;
             }
 
-            // Fallback: should not reach here, but in case, throw generic exception
             throw new PDOException('Unable to establish a database connection using any configured credentials.');
-            
+
         } catch (PDOException $e) {
             die("Erreur de connexion : " . $e->getMessage());
         }
