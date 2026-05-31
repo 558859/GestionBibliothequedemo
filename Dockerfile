@@ -18,7 +18,7 @@ RUN pecl install sqlsrv pdo_sqlsrv \
 # Activation du module de réécriture d'Apache (mod_rewrite)
 RUN a2enmod rewrite
 
-# Configuration d'Apache pour autoriser le .htaccess
+# Configuration d'Apache pour forcer la lecture du .htaccess sur Render
 RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
 # Copie des fichiers du projet dans le dossier du serveur web

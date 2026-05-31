@@ -1,8 +1,8 @@
 RewriteEngine On
 
-# Si le fichier ou le dossier demandé existe physiquement, on le charge normalement (pour le CSS, JS, images)
+# Si le fichier ou dossier existe, on le charge directement (CSS, JS, images)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Sinon, on redirige tout proprement vers l'index.php
+# Sinon, on redirige tout vers index.php
 RewriteRule ^(.*)$ index.php [QSA,L]
