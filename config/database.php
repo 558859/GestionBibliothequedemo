@@ -33,11 +33,20 @@ class Database
                 if ($driver === 'sqlsrv') {
                     $dsn = "sqlsrv:Server={$this->serverName};Database={$this->database};TrustServerCertificate=true";
                 } else {
-                    // Build MySQL DSN for Render
-                    $host = getenv('DB_SERVER') ?: getenv('DB_HOST') ?: $this->serverName;
-                    $db   = getenv('DB_NAME') ?: getenv('DB_DATABASE') ?: $this->database;
+                    // Build MySQL DSN for Render using standard env vars
+                    $host = getenv('DB_HOST') ?: getenv('DB_SERVER') ?: 'localhost';
+                    $port = getenv('DB_PORT') ?: '3306';
+                    $db   = getenv('DB_DATABASE') ?: getenv('DB_NAME') ?: null;
+                    $user = getenv('DB_USERNAME') ?: getenv('DB_USER') ?: null;
+                    $pass = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: null;
                     $charset = 'utf8mb4';
-                    $dsn = "mysql:host={$host};dbname={$db};charset={$charset}";
+
+                    // Build base DSN and include db if provided
+                    $dsn = "mysql:host={$host};port={$port}";
+                    if ($db) {
+                        $dsn .= ";dbname={$db}";
+                    }
+                    $dsn .= ";charset={$charset}";
                 }
             }
 
@@ -100,22 +109,53 @@ class Database
                         }
                     }
 
-                    return $conn;
-                } catch (PDOException $e) {
-                    $lastException = $e;
-                    error_log('Database connection attempt failed: ' . $e->getMessage());
-                    continue;
+                    $lastException = null;
+                    foreach ($attempts as $cred) {
+                        try {
+                            if ($cred['user'] === null) {
+                                $conn = new PDO($dsn);
+                            } else {
+                                $conn = new PDO($dsn, $cred['user'], $cred['pass']);
+                            }
+
+                            // Common attributes
+                            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                            $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+                            if ($driver === 'sqlsrv') {
+                                if (defined('PDO::SQLSRV_ATTR_ENCODING') && defined('PDO::SQLSRV_ENCODING_UTF8')) {
+                                    try {
+                                        $conn->setAttribute(PDO::SQLSRV_ATTR_ENCODING, PDO::SQLSRV_ENCODING_UTF8);
+                                    } catch (Exception $e) {
+                                        // non-fatal
+                                    }
+                                }
+                            } else {
+                                // MySQL specific tuning
+                                if (defined('PDO::ATTR_EMULATE_PREPARES')) {
+                                    $conn->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+                                }
+                            }
+
+                            return $conn;
+                        } catch (PDOException $e) {
+                            $lastException = $e;
+                            error_log('Database connection attempt failed: ' . $e->getMessage());
+                            continue;
+                        }
+                    }
+
+                    // If connection attempts failed, log and return null (non-fatal)
+                    if ($lastException) {
+                        error_log('All database connection attempts failed: ' . $lastException->getMessage());
+                    } else {
+                        error_log('No database connection attempts were made (missing credentials or configuration).');
+                    }
+
+                    return null;
+
+                } catch (Exception $e) {
+                    // Any unexpected error: log and return null rather than killing the app
+                    error_log('Unexpected error in Database::getConnection: ' . $e->getMessage());
+                    return null;
                 }
-            }
-
-            if ($lastException) {
-                throw $lastException;
-            }
-
-            throw new PDOException('Unable to establish a database connection using any configured credentials.');
-
-        } catch (PDOException $e) {
-            die("Erreur de connexion : " . $e->getMessage());
-        }
-    }
-}
