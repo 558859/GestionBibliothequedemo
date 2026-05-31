@@ -50,13 +50,23 @@ class Statistique
 
     public function derniersEmprunts()
     {
-        $stmt = $this->conn->prepare("
-            SELECT TOP 5 e.id, l.titre, et.nom, et.prenom, e.date_emprunt, e.date_retour_prevue, e.est_retourne
-            FROM emprunts e
-            INNER JOIN livres l ON l.id = e.livre_id
-            INNER JOIN etudiants et ON et.id = e.etudiant_id
-            ORDER BY e.id DESC
-        ");
+        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
+        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+            $sql = "SELECT e.id, l.titre, et.nom, et.prenom, e.date_emprunt, e.date_retour_prevue, e.est_retourne
+                    FROM emprunts e
+                    INNER JOIN livres l ON l.id = e.livre_id
+                    INNER JOIN etudiants et ON et.id = e.etudiant_id
+                    ORDER BY e.id DESC
+                    LIMIT 5";
+        } else {
+            $sql = "SELECT TOP 5 e.id, l.titre, et.nom, et.prenom, e.date_emprunt, e.date_retour_prevue, e.est_retourne
+                    FROM emprunts e
+                    INNER JOIN livres l ON l.id = e.livre_id
+                    INNER JOIN etudiants et ON et.id = e.etudiant_id
+                    ORDER BY e.id DESC";
+        }
+        
+        $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
     }
@@ -64,7 +74,13 @@ class Statistique
     public function retards()
     {
         $dateExpr = currentDateSql();
-        $sql = "\n            SELECT e.date_emprunt, e.date_retour_prevue, l.titre, et.nom, et.prenom, et.numero_etudiant\n            FROM emprunts e\n            INNER JOIN livres l ON l.id = e.livre_id\n            INNER JOIN etudiants et ON et.id = e.etudiant_id\n            WHERE e.est_retourne = 0 AND e.date_retour_prevue < " . $dateExpr . "\n            ORDER BY e.id DESC\n        ";
+        $sql = "SELECT e.date_emprunt, e.date_retour_prevue, l.titre, et.nom, et.prenom, et.numero_etudiant
+                FROM emprunts e
+                INNER JOIN livres l ON l.id = e.livre_id
+                INNER JOIN etudiants et ON et.id = e.etudiant_id
+                WHERE e.est_retourne = 0 AND e.date_retour_prevue < " . $dateExpr . "
+                ORDER BY e.id DESC";
+                
         $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
@@ -85,27 +101,48 @@ class Statistique
 
     public function livresPlusEmpruntes()
     {
-        $stmt = $this->conn->prepare("
-            SELECT TOP 10 l.id, l.titre, COUNT(e.id) AS total
-            FROM emprunts e
-            INNER JOIN livres l ON l.id = e.livre_id
-            GROUP BY l.id, l.titre
-            ORDER BY total DESC, l.id DESC
-        ");
+        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
+        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+            $sql = "SELECT l.id, l.titre, COUNT(e.id) AS total
+                    FROM emprunts e
+                    INNER JOIN livres l ON l.id = e.livre_id
+                    GROUP BY l.id, l.titre
+                    ORDER BY total DESC, l.id DESC
+                    LIMIT 10";
+        } else {
+            $sql = "SELECT TOP 10 l.id, l.titre, COUNT(e.id) AS total
+                    FROM emprunts e
+                    INNER JOIN livres l ON l.id = e.livre_id
+                    GROUP BY l.id, l.titre
+                    ORDER BY total DESC, l.id DESC";
+        }
+
+        $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
     public function etudiantsPlusActifs()
     {
-        $stmt = $this->conn->prepare("
-            SELECT TOP 10 et.nom, et.prenom, et.numero_etudiant, COUNT(e.id) AS total
-            FROM emprunts e
-            INNER JOIN etudiants et ON et.id = e.etudiant_id
-            GROUP BY et.nom, et.prenom, et.numero_etudiant
-            ORDER BY total DESC
-        ");
+        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
+        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+            $sql = "SELECT et.nom, et.prenom, et.numero_etudiant, COUNT(e.id) AS total
+                    FROM emprunts e
+                    INNER JOIN etudiants et ON et.id = e.etudiant_id
+                    GROUP BY et.nom, et.prenom, et.numero_etudiant
+                    ORDER BY total DESC
+                    LIMIT 10";
+        } else {
+            $sql = "SELECT TOP 10 et.nom, et.prenom, et.numero_etudiant, COUNT(e.id) AS total
+                    FROM emprunts e
+                    INNER JOIN etudiants et ON et.id = e.etudiant_id
+                    GROUP BY et.nom, et.prenom, et.numero_etudiant
+                    ORDER BY total DESC";
+        }
+
+        $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 }
+?>
