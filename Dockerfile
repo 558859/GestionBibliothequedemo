@@ -1,64 +1,35 @@
 FROM php:8.2-apache
 
-# Installation des dépendances système et des outils Microsoft SQL Server
-RUN apt-get update && apt-get install -y \
-    gnupg2 \
-    curl \
-    apt-transport-https \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies and Microsoft ODBC driver, then build PHP sqlsrv extensions
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates apt-transport-https gnupg2 wget curl build-essential \
+        unixodbc-dev libssl-dev libxml2-dev libzip-dev zlib1g-dev \
     && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.dist/mssql-release.list \
+    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
-    && ACCEPT_EULA=Y apt-get install -y msodbcsql17 mssql-tools unixodbc-dev \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+    && pecl channel-update pecl.php.net \
+    && pecl install sqlsrv pdo_sqlsrv \
+    && docker-php-ext-enable sqlsrv pdo_sqlsrv \
+    && docker-php-ext-install pdo pdo_mysql zip \
+    && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation des extensions PHP pdo_sqlsrv et sqlsrv
-RUN pecl install sqlsrv pdo_sqlsrv \
-    && docker-php-ext-enable sqlsrv pdo_sqlsrv
+# Allow .htaccess overrides and add a FallbackResource pointing to index.php
+RUN sed -ri 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf || true \
+    && printf '\n<Directory /var/www/html>\n    FallbackResource /index.php\n</Directory>\n' >> /etc/apache2/sites-available/000-default.conf
 
-# Activation du module de réécriture d'Apache (mod_rewrite)
-RUN a2enmod rewrite
-
-# Configuration d'Apache pour forcer la lecture du .htaccess sur Render
-RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
-
-# Copie des fichiers du projet dans le dossier du serveur web
+# Copy application code
 COPY . /var/www/html/
 
-# Ajustement des permissioFROM php:8.2-apache
-
-# 1. Installation des dépendances et du pilote SQL Server de Microsoft
-RUN apt-get update && apt-get install -y \
-    gnupg2 \
-    curl \
-    apt-transport-https \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.dist/mssql-release.list \
-    && apt-get update \
-    && ACCEPT_EULA=Y apt-get install -y msodbcsql17 mssql-tools unixodbc-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. Installation et activation des extensions PHP pour SQL Server
-RUN pecl install sqlsrv pdo_sqlsrv \
-    && docker-php-ext-enable sqlsrv pdo_sqlsrv
-
-# 3. Forcer Apache à rediriger TOUTES les pages vers index.php (Routage automatique)
-RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html\n\
-    <Directory /var/www/html>\n\
-        Options Indexes FollowSymLinks\n\
-        AllowOverride None\n\
-        Require all granted\n\
-        FallbackResource /index.php\n\
-    </Directory>\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
-
-# 4. Copie des fichiers du projet
-COPY . /var/www/html/
-
-# 5. Droits d'accès Linux
-RUN chown -R www-data:www-data /var/www/html/
-
-EXPOSE 80ns
-RUN chown -R www-data:www-data /var/www/html/
+# Set ownership and permissions for web files
+RUN chown -R www-data:www-data /var/www/html \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
+    && find /var/www/html -type f -exec chmod 644 {} \;
 
 EXPOSE 80
+
+CMD ["apache2-foreground"]
