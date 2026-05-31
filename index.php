@@ -8,7 +8,10 @@ require_once __DIR__ . '/controllers/EtudiantController.php';
 require_once __DIR__ . '/controllers/EmpruntController.php';
 require_once __DIR__ . '/controllers/StatistiqueController.php';
 
-$baseUrl = '/GestionBibliothequedemo';
+// DETECTION AUTOMATIQUE : Si on est sur Render, l'URL de base est vide (''), sinon c'est le dossier local
+$baseUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'onrender.com') !== false) 
+    ? '' 
+    : '/GestionBibliothequedemo';
 
 $database = new Database();
 $conn = $database->getConnection();
