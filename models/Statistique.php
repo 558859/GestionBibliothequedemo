@@ -16,6 +16,12 @@ class Statistique
         return (int) $stmt->fetchColumn();
     }
 
+    // Permet de savoir instantanément si on utilise SQLite (en ligne) ou SQL Server (en local)
+    private function isSQLite()
+    {
+        return $this->conn->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+    }
+
     public function totalLivres()
     {
         return $this->count('SELECT COUNT(*) FROM livres');
@@ -50,8 +56,7 @@ class Statistique
 
     public function derniersEmprunts()
     {
-        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
-        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+        if ($this->isSQLite()) {
             $sql = "SELECT e.id, l.titre, et.nom, et.prenom, e.date_emprunt, e.date_retour_prevue, e.est_retourne
                     FROM emprunts e
                     INNER JOIN livres l ON l.id = e.livre_id
@@ -101,8 +106,7 @@ class Statistique
 
     public function livresPlusEmpruntes()
     {
-        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
-        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+        if ($this->isSQLite()) {
             $sql = "SELECT l.id, l.titre, COUNT(e.id) AS total
                     FROM emprunts e
                     INNER JOIN livres l ON l.id = e.livre_id
@@ -124,8 +128,7 @@ class Statistique
 
     public function etudiantsPlusActifs()
     {
-        // Adaptation de la syntaxe TOP (SQL Server) vs LIMIT (SQLite Render)
-        if (getenv('RENDER') || isset($_ENV['RENDER'])) {
+        if ($this->isSQLite()) {
             $sql = "SELECT et.nom, et.prenom, et.numero_etudiant, COUNT(e.id) AS total
                     FROM emprunts e
                     INNER JOIN etudiants et ON et.id = e.etudiant_id
