@@ -15,13 +15,16 @@ RUN apt-get update && apt-get install -y \
 RUN pecl install sqlsrv pdo_sqlsrv \
     && docker-php-ext-enable sqlsrv pdo_sqlsrv
 
-# Activation du module de réécriture d'Apache
+# Activation du module de réécriture d'Apache (mod_rewrite)
 RUN a2enmod rewrite
+
+# Configuration d'Apache pour autoriser le .htaccess
+RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
 # Copie des fichiers du projet dans le dossier du serveur web
 COPY . /var/www/html/
 
 # Ajustement des permissions
-RUN chown -r www-data:www-data /var/www/html/
+RUN chown -R www-data:www-data /var/www/html/
 
 EXPOSE 80
