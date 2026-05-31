@@ -43,7 +43,9 @@ class Statistique
 
     public function nombreRetards()
     {
-        return $this->count('SELECT COUNT(*) FROM emprunts WHERE est_retourne = 0 AND date_retour_prevue < ' . currentDateSql());
+        $dateExpr = currentDateSql();
+        $sql = 'SELECT COUNT(*) FROM emprunts WHERE est_retourne = 0 AND date_retour_prevue < ' . $dateExpr;
+        return $this->count($sql);
     }
 
     public function derniersEmprunts()
@@ -61,14 +63,9 @@ class Statistique
 
     public function retards()
     {
-        $stmt = $this->conn->prepare("
-            SELECT e.date_emprunt, e.date_retour_prevue, l.titre, et.nom, et.prenom, et.numero_etudiant
-            FROM emprunts e
-            INNER JOIN livres l ON l.id = e.livre_id
-            INNER JOIN etudiants et ON et.id = e.etudiant_id
-            WHERE e.est_retourne = 0 AND e.date_retour_prevue < " . currentDateSql() . "
-            ORDER BY e.id DESC
-        ");
+        $dateExpr = currentDateSql();
+        $sql = "\n            SELECT e.date_emprunt, e.date_retour_prevue, l.titre, et.nom, et.prenom, et.numero_etudiant\n            FROM emprunts e\n            INNER JOIN livres l ON l.id = e.livre_id\n            INNER JOIN etudiants et ON et.id = e.etudiant_id\n            WHERE e.est_retourne = 0 AND e.date_retour_prevue < " . $dateExpr . "\n            ORDER BY e.id DESC\n        ";
+        $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
     }
