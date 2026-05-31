@@ -8,10 +8,12 @@ require_once __DIR__ . '/controllers/EtudiantController.php';
 require_once __DIR__ . '/controllers/EmpruntController.php';
 require_once __DIR__ . '/controllers/StatistiqueController.php';
 
-// DETECTION AUTOMATIQUE : Si on est sur Render, l'URL de base est vide (''), sinon c'est le dossier local
-$baseUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'onrender.com') !== false) 
-    ? '' 
-    : '/GestionBibliothequedemo';
+// DETECTION AUTOMATIQUE : Si on est sur Render (RENDER_EXTERNAL_URL ou host onrender.com), l'URL de base est vide (''), sinon c'est le dossier local
+if (getenv('RENDER_EXTERNAL_URL') || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'onrender.com') !== false)) {
+    $baseUrl = '';
+} else {
+    $baseUrl = '/GestionBibliothequedemo';
+}
 
 $database = new Database();
 $conn = $database->getConnection();
