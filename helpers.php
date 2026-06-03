@@ -86,12 +86,5 @@ function clearFlashData()
 
 function currentDateSql()
 {
-    // If running on Render (typically SQLite), use SQLite's date('now') function.
-    // Render sets the RENDER env var; prefer that detection for portability.
-    if (getenv('RENDER')) {
-        return "date('now')";
-    }
-
-    // Default to SQL Server expression for local environments.
     return 'CAST(GETDATE() AS date)';
 }

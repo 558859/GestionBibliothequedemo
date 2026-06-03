@@ -1,8 +1,49 @@
 document.addEventListener('DOMContentLoaded', function () {
+  initThemeToggle();
   initToasts();
   initDeleteModal();
   initCharts();
 });
+
+function initThemeToggle() {
+  var button = document.querySelector('.theme-toggle');
+  var savedTheme = localStorage.getItem('gb-theme') || 'light';
+
+  applyTheme(savedTheme);
+
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener('click', function () {
+    var currentTheme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    var nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    localStorage.setItem('gb-theme', nextTheme);
+    applyTheme(nextTheme);
+    updateChartsTheme();
+  });
+}
+
+function applyTheme(theme) {
+  var normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+  var button = document.querySelector('.theme-toggle');
+
+  document.documentElement.dataset.theme = normalizedTheme;
+
+  if (!button) {
+    return;
+  }
+
+  var icon = button.querySelector('i');
+  var isDark = normalizedTheme === 'dark';
+  button.setAttribute('aria-label', isDark ? 'Passer au thème clair' : 'Passer au thème sombre');
+  button.setAttribute('title', isDark ? 'Passer au thème clair' : 'Passer au thème sombre');
+
+  if (icon) {
+    icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon-stars';
+  }
+}
 
 function initToasts() {
   if (typeof bootstrap === 'undefined') {
@@ -44,8 +85,9 @@ function initCharts() {
     return;
   }
 
+  window.gbCharts = [];
   Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
-  Chart.defaults.color = '#555';
+  Chart.defaults.color = chartTextColor();
 
   document.querySelectorAll('.js-chart').forEach(function (canvas) {
     var labels = readJson(canvas.dataset.labels);
@@ -60,7 +102,7 @@ function initCharts() {
     var type = canvas.dataset.type || 'bar';
     var isDoughnut = type === 'doughnut';
 
-    new Chart(canvas, {
+    var chart = new Chart(canvas, {
       type: type,
       data: {
         labels: labels,
@@ -82,6 +124,7 @@ function initCharts() {
             position: 'bottom',
             labels: {
               boxWidth: 12,
+              color: chartTextColor(),
               padding: 14
             }
           }
@@ -89,15 +132,46 @@ function initCharts() {
         scales: isDoughnut ? {} : {
           x: {
             grid: { display: false },
-            ticks: { maxRotation: 35, minRotation: 0 }
+            ticks: { color: chartTextColor(), maxRotation: 35, minRotation: 0 }
           },
           y: {
             beginAtZero: true,
-            ticks: { precision: 0 }
+            ticks: { color: chartTextColor(), precision: 0 },
+            grid: { color: chartGridColor() }
           }
         }
       }
     });
+
+    window.gbCharts.push(chart);
+  });
+}
+
+function updateChartsTheme() {
+  if (!window.gbCharts) {
+    return;
+  }
+
+  window.gbCharts.forEach(function (chart) {
+    Chart.defaults.color = chartTextColor();
+
+    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+      chart.options.plugins.legend.labels.color = chartTextColor();
+    }
+
+    if (chart.options.scales) {
+      Object.keys(chart.options.scales).forEach(function (key) {
+        var scale = chart.options.scales[key];
+        if (scale.ticks) {
+          scale.ticks.color = chartTextColor();
+        }
+        if (scale.grid && key === 'y') {
+          scale.grid.color = chartGridColor();
+        }
+      });
+    }
+
+    chart.update();
   });
 }
 
@@ -120,4 +194,12 @@ function chartColors(count, soft) {
     var color = base[index % base.length];
     return soft ? color + 'cc' : color;
   });
+}
+
+function chartTextColor() {
+  return document.documentElement.dataset.theme === 'dark' ? '#d9e4f2' : '#555';
+}
+
+function chartGridColor() {
+  return document.documentElement.dataset.theme === 'dark' ? '#2b3850' : 'rgba(0, 0, 0, 0.1)';
 }

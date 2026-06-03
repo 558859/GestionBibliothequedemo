@@ -54,25 +54,34 @@
             <p>Aucun étudiant enregistré pour le moment.</p>
           </div>
         <?php else: ?>
-        <table class="custom-table table-wide">
+        <div class="etudiants-table-wrap">
+        <table class="custom-table table-wide etudiants-table">
+          <colgroup>
+            <col class="col-nom">
+            <col class="col-prenom">
+            <col class="col-numero">
+            <col class="col-filiere">
+            <col class="col-contact">
+            <col class="col-actions">
+          </colgroup>
           <thead>
             <tr>
-              <th class="cell-medium">Nom</th>
-              <th class="cell-medium">Prénom</th>
-              <th class="cell-medium">Numéro</th>
-              <th class="cell-medium">Filière</th>
-              <th class="cell-long">Contact</th>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Numéro</th>
+              <th>Filière</th>
+              <th>Contact</th>
               <th class="table-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($etudiants as $etudiant): ?>
               <tr>
-                <td class="cell-medium" data-label="Nom"><?= h($etudiant['nom']) ?></td>
-                <td class="cell-medium" data-label="Prénom"><?= h($etudiant['prenom']) ?></td>
-                <td class="cell-medium" data-label="Numéro"><?= h($etudiant['numero_etudiant']) ?></td>
-                <td class="cell-medium" data-label="Filière"><span class="badge-filiere"><?= h($etudiant['filiere']) ?></span></td>
-                <td class="cell-long" data-label="Contact"><?= h($etudiant['contact']) ?></td>
+                <td data-label="Nom"><?= h($etudiant['nom']) ?></td>
+                <td data-label="Prénom"><?= h($etudiant['prenom']) ?></td>
+                <td data-label="Numéro"><?= h($etudiant['numero_etudiant']) ?></td>
+                <td data-label="Filière"><span class="badge-filiere" title="<?= h($etudiant['filiere']) ?>"><?= h($etudiant['filiere']) ?></span></td>
+                <td data-label="Contact"><?= h($etudiant['contact']) ?></td>
                 <td class="table-actions" data-label="Actions">
                   <span class="action-group">
                     <a class="btn-icon edit" href="<?= h($baseUrl) ?>/index.php?page=etudiants&action=edit&id=<?= h($etudiant['id']) ?>"><i class="bi bi-pencil-square"></i></a>
@@ -83,6 +92,7 @@
             <?php endforeach; ?>
           </tbody>
         </table>
+        </div>
         <?php endif; ?>
       </div>
     </div>
