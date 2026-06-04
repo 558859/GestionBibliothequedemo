@@ -9,7 +9,10 @@ require_once __DIR__ . '/controllers/EtudiantController.php';
 require_once __DIR__ . '/controllers/EmpruntController.php';
 require_once __DIR__ . '/controllers/StatistiqueController.php';
 
-$baseUrl = '/gbibliotheque';
+$baseUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+if ($baseUrl === '\\' || $baseUrl === '.') {
+    $baseUrl = '';
+}
 
 $database = new Database();
 $conn = $database->getConnection();

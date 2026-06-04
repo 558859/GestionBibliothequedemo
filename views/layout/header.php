@@ -2,7 +2,10 @@
 $pageTitle = $pageTitle ?? 'Gestion Bibliothèque';
 $pageHeading = $pageHeading ?? $pageTitle;
 $activePage = $activePage ?? '';
-$baseUrl = $baseUrl ?? '/gbibliotheque';
+$baseUrl = $baseUrl ?? rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+if ($baseUrl === '\\' || $baseUrl === '.') {
+    $baseUrl = '';
+}
 ?>
 <!doctype html>
 <html lang="fr">

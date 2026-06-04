@@ -2,7 +2,7 @@
 
 class Database
 {
-    private $serverName = 'localhost\SQLEXPRESS';
+    private $serverName = 'DESKTOP-TJDPT3K';
     private $database = "GestionBibliothequedemo";
 
     private $username = 'bibli_user' ;
